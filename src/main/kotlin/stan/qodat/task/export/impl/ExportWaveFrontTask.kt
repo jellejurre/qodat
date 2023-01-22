@@ -29,19 +29,21 @@ sealed class ExportWaveFrontTask(val saveDir: Path) : ExportTask() {
         val modelGroupName: String,
         val frames: List<AnimationFrame>,
         val model: Model,
-        val reColorMap: Map<Short, Short>? = null,
+        val animationName: String?,
+        val reColorMap: Map<Short, Short>? = null
     ) : ExportWaveFrontTask(saveDir) {
 
-        constructor(saveDir: Path, model: Model, frames: List<AnimationFrame>) :
-                this(saveDir, model.getName().replace(" ", "_"), frames, model)
+        constructor(saveDir: Path, model: Model, frames: List<AnimationFrame>, animationName: String?) :
+                this(saveDir, model.getName().replace(" ", "_"), frames, model, animationName)
 
-        constructor(saveDir: Path, entity: Entity<*>, frames: List<AnimationFrame>) :
+        constructor(saveDir: Path, entity: Entity<*>, frames: List<AnimationFrame>, animationName: String?) :
                 this(
                     saveDir = saveDir,
                     modelGroupName = entity.formatFileName(),
                     frames = frames,
                     model = entity.createMergedModel(entity.formatName()),
-                    reColorMap = entity.getRecolorMap()
+                    reColorMap = entity.getRecolorMap(),
+                    animationName = animationName
                 )
 
         override fun call(): ExportTaskResult {
@@ -58,6 +60,21 @@ sealed class ExportWaveFrontTask(val saveDir: Path) : ExportTask() {
                 modelDefinition.computeNormals()
                 modelDefinition.computeTextureUVCoordinates()
             }
+            val objWriter = WaveFrontWriter(saveDir)
+
+            objWriter.writeObjFile(
+                model = model,
+                materials = materials,
+                computeTextureUVCoordinate = false,
+                mtlFileNameWithoutExtension = modelGroupName,
+                objFileNameWithoutExtension = modelGroupName + "_base"
+            )
+
+            GlobalScope.launch(Dispatchers.JavaFx) {
+                val finishedCount = modelExportFinishedCount.incrementAndGet().toLong()
+                updateMessage("Parsing model $finishedCount in group $modelGroupName")
+                updateProgress(finishedCount, modelCount.toLong())
+            }
             frames.forEach { animationFrame ->
                 model.animate(animationFrame)
                 val objWriter = WaveFrontWriter(saveDir)
@@ -67,7 +84,7 @@ sealed class ExportWaveFrontTask(val saveDir: Path) : ExportTask() {
                     materials = materials,
                     computeTextureUVCoordinate = false,
                     mtlFileNameWithoutExtension = modelGroupName,
-                    objFileNameWithoutExtension = modelGroupName + "_${animationFrame.getName()}"
+                    objFileNameWithoutExtension = modelGroupName + "_${animationName}_${animationFrame.getName()}_${animationFrame.getLength()}"
                 )
                 GlobalScope.launch(Dispatchers.JavaFx) {
                     val finishedCount = modelExportFinishedCount.incrementAndGet().toLong()

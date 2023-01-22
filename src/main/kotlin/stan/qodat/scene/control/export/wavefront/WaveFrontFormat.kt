@@ -145,7 +145,7 @@ sealed class WaveFrontFormat<C> : ExportFormat<C> {
                     var directory = path.resolve(exportableName)
 
                     if (animation != null)
-                        directory = directory.resolve("animation/${animation.getName()}")
+                        directory = directory.resolve("animation")
 
                     directory.toFile().apply {
                         if (!exists()) {
@@ -157,9 +157,10 @@ sealed class WaveFrontFormat<C> : ExportFormat<C> {
                         is Entity<*> -> ExportWaveFrontTask.Sequence(
                             saveDir = directory,
                             exportable,
-                            animationFrames
+                            animationFrames,
+                            animation?.getName()
                         )
-                        is Model -> ExportWaveFrontTask.Sequence(saveDir = directory, exportable, animationFrames)
+                        is Model -> ExportWaveFrontTask.Sequence(saveDir = directory, exportable, animationFrames, animation?.getName())
                         else -> throw Exception("Could not export $exportableName of type ${exportable::class.java}.")
                     }
 
